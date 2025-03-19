@@ -1,6 +1,7 @@
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 import requests
+from services.openfoodfacts import calculate_health_score  # Importing from openfoodfacts.py
 
 app = FastAPI()
 OPENFOODFACTS_API = "https://world.openfoodfacts.org/api/v0/product"
@@ -8,14 +9,17 @@ OPENFOODFACTS_API = "https://world.openfoodfacts.org/api/v0/product"
 # ✅ Enable CORS to allow frontend requests
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allows all origins (You can specify frontend URL)
+    allow_origins=["*"],
     allow_credentials=True,
-    allow_methods=["*"],  # Allows all HTTP methods
-    allow_headers=["*"],  # Allows all headers
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 def extract_product_details(product_data):
-    """Extract only required details dynamically."""
+    """Extract only required details dynamically, including HealthScore."""
+    # ✅ Calculate HealthScore
+    health_score, score_details = calculate_health_score(product_data)
+
     return {
         "barcode": product_data.get("code", "N/A"),
         "name": product_data.get("product_name", "N/A"),
@@ -27,7 +31,9 @@ def extract_product_details(product_data):
             key: value for key, value in product_data.get("nutriments", {}).items()
         },
         "additives_tags": product_data.get("additives_tags", []),
-        "keywords": product_data.get("generic_name", "N/A"),  # Include keywords
+        "keywords": product_data.get("generic_name", "N/A"),
+        "health_score": health_score,
+        "score_details": score_details
     }
 
 @app.get("/")
@@ -64,4 +70,4 @@ async def search_product(query: str = Query(..., min_length=2)):
     import json
     print("DEBUG: Full JSON Response:\n", json.dumps(data, indent=4))  
 
-    return data  # Temporarily return full response for debugging
+    return data
